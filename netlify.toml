@@ -1,0 +1,10 @@
+[build]
+  # Tell Netlify where your functions live
+  functions = "netlify/functions"
+
+# Rewrite /api/quantum_blur → your function
+[[redirects]]
+  from     = "/api/quantum_blur"
+  to       = "/.netlify/functions/quantum_blur"
+  status   = 200
+  methods  = ["POST","OPTIONS"]
