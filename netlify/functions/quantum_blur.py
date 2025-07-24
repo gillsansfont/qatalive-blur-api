@@ -1,45 +1,47 @@
-import json, base64, io
-import numpy as np
-import cv2
-from PIL import Image
+import json
+import base64
+import io
 
-# replace this with your real algorithm!
-def quantum_blur(img: np.ndarray) -> np.ndarray:
-    return cv2.GaussianBlur(img, (31, 31), 0)
+import numpy as np
+from PIL import Image
+from quantumblur import quantum_blur
 
 def handler(event, context):
-    # handle CORS preflight
+    # CORS preflight
     if event["httpMethod"] == "OPTIONS":
         return {
             "statusCode": 200,
             "headers": {
-                "Access-Control-Allow-Origin": "https://qatalive.art",
+                "Access-Control-Allow-Origin":  "*",
                 "Access-Control-Allow-Methods": "POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Headers": "Content-Type"
             }
         }
 
-    body = json.loads(event["body"] or "{}")
+    body = json.loads(event.get("body", "{}"))
     img_b64 = body.get("image", "").split(",", 1)[-1]
-    img_data = base64.b64decode(img_b64)
+    try:
+        img_data = base64.b64decode(img_b64)
+    except Exception:
+        return { "statusCode": 400, "body": json.dumps({"error": "Invalid base64"}) }
 
-    # load into OpenCV via NumPy
-    arr = np.frombuffer(img_data, dtype=np.uint8)
-    img  = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+    # Decode, blur, re-encode
+    img = Image.open(io.BytesIO(img_data)).convert("RGB")
+    arr = np.array(img)
+    blurred_arr = quantum_blur(arr)
+    out_img = Image.fromarray(blurred_arr, mode="RGB")
 
-    # run your blur
-    out  = quantum_blur(img)
-
-    # re‑encode as PNG→base64
-    _, buf     = cv2.imencode('.png', out)
-    out_b64str = base64.b64encode(buf).decode('utf-8')
-    payload    = {"image": f"data:image/png;base64,{out_b64str}"}
+    buf = io.BytesIO()
+    out_img.save(buf, format="PNG")
+    out_b64 = base64.b64encode(buf.getvalue()).decode()
 
     return {
         "statusCode": 200,
         "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "https://qatalive.art",
+            "Content-Type":              "application/json",
+            "Access-Control-Allow-Origin":  "*",
         },
-        "body": json.dumps(payload)
+        "body": json.dumps({
+            "image": f"data:image/png;base64,{out_b64}"
+        })
     }
