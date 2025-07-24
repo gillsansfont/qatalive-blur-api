@@ -45,3 +45,4 @@ def handler(event, context):
             "image": f"data:image/png;base64,{out_b64}"
         })
     }
+    
